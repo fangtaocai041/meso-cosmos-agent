@@ -30,10 +30,55 @@
      └───────────┘ └─────────┘ └────────┘ └─────────┘
 ```
 
+## 三层智能优化架构
+
+| 层 | 模块 | 核心技术 | 理论来源 |
+|:--:|------|------|------|
+| ⚡ **DeepSeek** | `search_optimizer.py` | MoE 门控 · KV 结果缓存 · CSA/HCA 分层搜索 · 满意即止 | DeepSeek V2→V4 技术演进 |
+| 🎓 **Scholar** | `search_optimizer.py` | Rule of Three 统计停止 · Simon 有限理性 · 熵驱动方向选择 | Hanley (1983) · Simon (1955) · NOAA (2023) |
+| 🦋 **Chaos** | `chaos_engine.py` | Rössler 吸引子路由扰动 · Logistic 混沌探索 · 临界耦合 · 熵值安全边界 | Langton (1990) · Chen & Aihara (1995) · Beggs & Plenz (2003) |
+
+### ⚡ DeepSeek 层 — 极致效率
+
+```
+MoE 门控: 只为相关专家分配算力 (鳤→仅V激活, 江豚→V+P₁, 刀鲚→V+P₂)
+KV 缓存:  搜索结果缓存, 命中即返回 (0 token, 0ms)
+CSA/HCA:  轻量扫描(Tier1, 30%预算) → 候选深度展开(Tier2, 70%预算)
+满意即止:  papers ≥ 8 + IG < ε → 立即停止, 不穷举
+```
+
+### 🎓 学者层 — 统计置信
+
+```
+Rule of Three (Hanley 1983):  连续30篇不相关 → 剩余≤10%相关 (95%CI) → 停止
+Simon 有限理性:               token/时间/筛选量 三重硬约束
+熵驱动方向:                   优先搜索信息增益最大的数据库/引擎
+```
+
+### 🦋 混沌层 — 创造性探索
+
+```
+Rössler 吸引子:  路由置信度 ±0.02 非重复扰动, 避免确定性路径依赖
+Logistic 探索:   ~5% 概率触发 wildcard 意外搜索方向, 促发偶然发现
+临界耦合:        S-T-V-P₁-P₂ 交互矩阵谱半径≈1, 边缘涌现协同
+EntropyGuard:    熵值超标 → 衰减混沌 → 回退确定性基线
+```
+
 ## 快速开始
 
 ```bash
 cd meso-cosmos-agent
 pip install -e .
 meso run --query "长江江豚种群数量变化趋势"
+meso health  # 检查 S-T-V-P₁-P₂ 全部健康状态
+```
+
+## 测试
+
+```bash
+# 全系统测试 (251项, 10套件)
+python ../scripts/run_all_tests.py
+
+# 快速模式 (157项)
+python ../scripts/run_all_tests.py --quick
 ```
