@@ -7,27 +7,27 @@
 
 ## 项目定位
 
-`meso-cosmos-agent` 是从 `porpoise-agent` 和 `cognitive-search-engine` 中提取的**纯协调层**：
+`meso-cosmos-agent` 是 S-T-V-P₁-P₂ 生态系统中的**纯协调层 (T)**。自身包含约 1,000 行核心协调代码，其余 D₃ 模块通过 DirectLoader 从原项目按需加载。
 
-| 来源 | 提取模块 | 行数 |
-|------|---------|:---:|
-| porpoise | orchestrator, dimensional_evolution, stv_core, emergence_monitor, meso_experiment, resilience_engine, deepseek_optimizer, nlg_engine | ~5,200 |
-| cognitive | meso_agent, validator, evolution_executor, paper_health_check | ~1,400 |
-| workspace | meso_agent.yaml, meso-orchestrator.md | ~500 |
+| 位置 | 模块 | 行数 |
+|------|------|:--:|
+| 🏠 本项目 | `pipeline/orchestrator.py` (6-phase), `monitor/validator.py`, `monitor/evolution_executor.py`, `monitor/health_check.py` | ~1,000 |
+| 📡 DirectLoader | cognitive: `meso_agent.py` (BDI+ReAct), porpoise: `orchestrator.py` (5-phase FSM) | 按需加载 |
+| ⚙️ 配置 | `config/coordination.yaml` (5项目注册 + 智能路由) | — |
 
-## S-T-V-P 四体架构
+## S-T-V-P₁-P₂ 五体架构
 
 ```
-         ┌──────────────────────────────────────┐
-         │        🌐 Meso-Cosmos Agent (T)       │
-         │   UNDERSTAND → ROUTE → EXECUTE →     │
-         │   VALIDATE → SYNTHESIZE → EVOLVE     │
-         └────┬──────────┬──────────┬───────────┘
-              │          │          │
-     ┌────────▼──┐ ┌────▼─────┐ ┌─▼──────────┐
-     │ 🐟 fish   │ │ 🐬 porp  │ │ 🧠 cognitive│
-     │  S (知识) │ │ P (专研) │ │ V (验证)   │
-     └───────────┘ └──────────┘ └────────────┘
+         ┌──────────────────────────────────────────┐
+         │       🌐 Meso-Cosmos Agent (T)            │
+         │   UNDERSTAND → ROUTE → EXECUTE →         │
+         │   VALIDATE → SYNTHESIZE → EVOLVE         │
+         └────┬─────────┬──────────┬──────────┬─────┘
+              │         │          │          │
+     ┌────────▼──┐ ┌────▼────┐ ┌───▼────┐ ┌──▼──────┐
+     │ 🐟 fish   │ │🐬 porp  │ │🐟 coil │ │🧠 cogn  │
+     │ S (知识)  │ │P₁(江豚) │ │P₂(刀鲚)│ │V (验证) │
+     └───────────┘ └─────────┘ └────────┘ └─────────┘
 ```
 
 ## 快速开始
