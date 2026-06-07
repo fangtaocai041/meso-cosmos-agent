@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: meso-cosmos-agent
+Version: 1.0.0
+Summary: Meso-Cosmos Agent — S-T-V-P 四体架构中的 T (Transition) 核心执行层
+Requires-Python: >=3.10
+Requires-Dist: pyyaml>=6.0

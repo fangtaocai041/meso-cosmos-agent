@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [project.scripts]
-meso = "src.main:main"
+meso = "meso_cli:main"
 
 [tool.meso]
 # S-T-V-P 项目注册

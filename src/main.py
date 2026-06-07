@@ -11,8 +11,10 @@ import argparse
 import sys
 from pathlib import Path
 
-# Ensure src is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Ensure project root is importable (parent of src/)
+_proj_root = str(Path(__file__).resolve().parent.parent)
+if _proj_root not in sys.path:
+    sys.path.insert(0, _proj_root)
 
 
 def cmd_run(args):
