@@ -1,8 +1,9 @@
 # 🌐 Meso-Cosmos Agent — S-T-V-P 执行中枢
 
-> **角色**: T (Transition) — 连接 S(知识供给) + P(领域专研) + V(验证引擎)
+> **角色**: T (Transition) — 连接 S(知识供给) + P₁(江豚专研) + P₂(刀鲚专研) + V(验证引擎)
 > **架构**: Macro(BDI意图) → Meso(跨项目协调) → Micro(项目执行)
-> **管辖**: fish-ecology-assistant (S) + porpoise-agent (P) + cognitive-search-engine (V)
+> **管辖**: fish (S) + porpoise (P₁) + coilia (P₂) + cognitive (V)
+> **版本**: v1.0.0 | **状态**: ✅ 运行中
 
 ## 项目定位
 
