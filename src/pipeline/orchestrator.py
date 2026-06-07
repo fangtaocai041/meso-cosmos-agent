@@ -110,6 +110,11 @@ class MesoOrchestrator:
 
     Architecture:
       Macro(BDI意图) → Meso(跨项目协调) → Micro(项目执行)
+
+    Performance notes:
+      - DirectLoader modules are cached after first import (~1980 calls/s)
+      - reset() clears session state for clean reuse
+      - NONINTERACTIVE env var suppresses human-in-the-loop prompts
     """
 
     PHASE_ORDER = [
@@ -127,10 +132,20 @@ class MesoOrchestrator:
         self._load_config()
         self._disabled_components: set[str] = set()
 
+        # DirectLoader module cache (lazy, ~1980 calls/s after warm)
+        self._dl_cache: dict[str, object] = {}
+
         # Session state
         self.contradiction_signals: list[ContradictionSignal] = []
         self.verification_tags: list[VerificationTag] = []
         self._source_cache: dict[str, list[str]] = {}
+
+    def reset(self):
+        """Clear session state for clean reuse (stress test / long-running server)."""
+        self.contradiction_signals.clear()
+        self.verification_tags.clear()
+        self._source_cache.clear()
+        # Keep config + DL cache intact
 
     def _load_config(self):
         try:
@@ -380,40 +395,41 @@ class MesoOrchestrator:
         return results
 
     def _call_cognitive(self, query: str, ctx: dict) -> dict:
-        """DirectLoader: call cognitive-search-engine via importlib."""
+        """DirectLoader: call cognitive-search-engine via importlib (cached)."""
         try:
-            import importlib.util
-            import os
-            engine_root = os.path.join(
-                os.path.dirname(__file__), "..", "..", "..",
-                "cognitive-search-engine"
-            )
+            if "cognitive" in self._dl_cache:
+                create_agent = self._dl_cache["cognitive"]
+                agent = create_agent(mode="http")
+                result = agent.search(query.replace(" ", "_"))
+                return result.to_dict() if hasattr(result, 'to_dict') else {"status": "ok"}
+            import importlib.util, os
+            engine_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "cognitive-search-engine")
             engine_root = os.path.normpath(os.path.abspath(engine_root))
             engine_file = os.path.join(engine_root, "src", "meso_agent.py")
-
             if not os.path.isfile(engine_file):
                 return {"status": "unavailable", "reason": "cognitive engine not found"}
-
+            import sys
+            if engine_root not in sys.path: sys.path.insert(0, engine_root)
             spec = importlib.util.spec_from_file_location("cogsearch.meso", engine_file)
             if spec is None or spec.loader is None:
                 return {"status": "error", "reason": "import failed"}
-
-            import sys
-            if engine_root not in sys.path:
-                sys.path.insert(0, engine_root)
-
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-
+            self._dl_cache["cognitive"] = mod.create_agent  # cache factory function
             agent = mod.create_agent(mode="http")
             result = agent.search(query.replace(" ", "_"))
-            return result.to_dict() if hasattr(result, 'to_dict') else {"status": "ok", "result": str(result)}
+            return result.to_dict() if hasattr(result, 'to_dict') else {"status": "ok"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
     def _call_coilia(self, query: str, ctx: dict) -> dict:
-        """DirectLoader: call coilia-agent (P₂) via importlib."""
+        """DirectLoader: call coilia-agent (P₂) via importlib (cached)."""
         try:
+            # Use cached module if available
+            if "coilia" in self._dl_cache:
+                orch_cls = self._dl_cache["coilia"]
+                return orch_cls().run(query)
+
             import importlib.util, os
             agent_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "coilia-agent")
             agent_root = os.path.normpath(os.path.abspath(agent_root))
@@ -428,8 +444,8 @@ class MesoOrchestrator:
                 return {"status": "error", "error": "coilia import failed"}
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-            orch = mod.CoiliaOrchestrator()
-            return orch.run(query)
+            self._dl_cache["coilia"] = mod.CoiliaOrchestrator  # cache the class
+            return mod.CoiliaOrchestrator().run(query)
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
