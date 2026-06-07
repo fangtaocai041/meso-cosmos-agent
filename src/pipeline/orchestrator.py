@@ -134,12 +134,17 @@ class MesoOrchestrator:
 
     def _load_config(self):
         try:
-            import yaml
+            import yaml, os
             from pathlib import Path
             path = Path(self.config_path)
+            if not path.exists():
+                # Fallback: derive from this file's location
+                base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                path = Path(base) / "config" / "coordination.yaml"
             if path.exists():
                 with open(path, encoding="utf-8") as f:
                     self.config = yaml.safe_load(f) or {}
+                self.config_path = str(path)
         except Exception:
             self.config = {}
 
@@ -265,30 +270,68 @@ class MesoOrchestrator:
     # ═══════════════════════════════════════════════════════════
 
     def _phase_route(self, query: str, intent: dict) -> list[RouteDecision]:
-        """Route to S-T-V-P projects based on intent and config routing rules."""
+        """Route to S-T-V-P projects based on config routing rules (priority-ordered)."""
         routes = []
-        domain_scores = intent.get("domain_scores", {})
-        contradiction = intent.get("contradiction", {})
-        budget_mult = contradiction.get("budget_multiplier", 1.0)
-        projects = self.config.get("projects", {})
+        q_lower = query.lower()
+        routing_cfg = self.config.get("routing", {})
+        rules = routing_cfg.get("rules", [])
 
-        total_score = sum(domain_scores.values()) or 1
+        # Try explicit routing rules first (highest priority)
+        matched = False
+        for rule in rules:
+            if "default" in rule:
+                continue  # handled after explicit rules
+            keywords = rule.get("query_contains", [])
+            if any(kw.lower() in q_lower for kw in keywords):
+                targets = rule.get("route_to", [])
+                if isinstance(targets, str):
+                    targets = [targets]
+                budget_split = rule.get("budget_split", {})
+                for proj in targets:
+                    routes.append(RouteDecision(
+                        target_project=proj,
+                        skill=rule.get("skill", "search-literature"),
+                        confidence=0.8,
+                        reason=rule.get("reason", "routing rule matched"),
+                        budget_share=budget_split.get(proj, 1.0 / len(targets)),
+                    ))
+                matched = True
 
-        for proj_name, score in sorted(domain_scores.items(), key=lambda x: -x[1]):
-            proj_cfg = projects.get(proj_name, {})
-            entry_skill = proj_cfg.get("entry_skill", "search-literature")
-            budget_share = (score / total_score) * budget_mult if contradiction.get("type") == "antagonistic" else score / total_score
+        # Fallback: keyword-based domain matching from projects config
+        if not matched:
+            domain_scores = intent.get("domain_scores", {})
+            projects = self.config.get("projects", {})
+            total_score = sum(domain_scores.values()) or 1
+            for proj_name, score in sorted(domain_scores.items(), key=lambda x: -x[1]):
+                proj_cfg = projects.get(proj_name, {})
+                entry_skill = proj_cfg.get("entry_skill", "search-literature")
+                routes.append(RouteDecision(
+                    target_project=proj_name,
+                    skill=entry_skill,
+                    confidence=min(score / max(total_score, 1), 1.0),
+                    reason=f"domain keywords matched (score={score})",
+                    budget_share=score / total_score,
+                ))
 
-            routes.append(RouteDecision(
-                target_project=proj_name,
-                skill=entry_skill,
-                confidence=min(score / max(total_score, 1), 1.0),
-                reason=f"domain keywords matched (score={score})",
-                budget_share=min(budget_share, 1.0),
-            ))
+        # Default rule
+        if not routes:
+            for rule in rules:
+                if "default" in rule:
+                    targets = rule.get("default", rule.get("route_to", ["cognitive-search-engine"]))
+                    if isinstance(targets, str):
+                        targets = [targets]
+                    split = rule.get("budget_split", {})
+                    for proj in targets:
+                        routes.append(RouteDecision(
+                            target_project=proj,
+                            skill="graph-search-engine" if proj == "cognitive-search-engine" else "search-literature",
+                            confidence=0.5,
+                            reason="default route",
+                            budget_share=split.get(proj, 1.0 / len(targets)),
+                        ))
 
         # Always include cognitive for validation
-        if "cognitive-search-engine" not in domain_scores:
+        if "cognitive-search-engine" not in {r.target_project for r in routes}:
             routes.append(RouteDecision(
                 target_project="cognitive-search-engine",
                 skill="graph-search-engine",
@@ -310,9 +353,15 @@ class MesoOrchestrator:
         for route in routes:
             proj = route.target_project
             try:
-                # Try DirectLoader for cognitive-search-engine
+                # DirectLoader for cognitive-search-engine (V)
                 if proj == "cognitive-search-engine":
                     result = self._call_cognitive(query, ctx)
+                # DirectLoader for coilia-agent (P₂)
+                elif proj == "coilia-agent":
+                    result = self._call_coilia(query, ctx)
+                # DirectLoader for porpoise-agent (P₁)
+                elif proj == "porpoise-agent":
+                    result = self._call_porpoise(query, ctx)
                 else:
                     # Format DELEGATE protocol message
                     result = {
@@ -359,6 +408,51 @@ class MesoOrchestrator:
             agent = mod.create_agent(mode="http")
             result = agent.search(query.replace(" ", "_"))
             return result.to_dict() if hasattr(result, 'to_dict') else {"status": "ok", "result": str(result)}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _call_coilia(self, query: str, ctx: dict) -> dict:
+        """DirectLoader: call coilia-agent (P₂) via importlib."""
+        try:
+            import importlib.util, os
+            agent_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "coilia-agent")
+            agent_root = os.path.normpath(os.path.abspath(agent_root))
+            agent_file = os.path.join(agent_root, "src", "agent", "orchestrator.py")
+            if not os.path.isfile(agent_file):
+                return {"status": "error", "error": f"coilia-agent not found at {agent_file}"}
+            import sys
+            if agent_root not in sys.path:
+                sys.path.insert(0, agent_root)
+            spec = importlib.util.spec_from_file_location("coilia.orchestrator", agent_file)
+            if spec is None or spec.loader is None:
+                return {"status": "error", "error": "coilia import failed"}
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            orch = mod.CoiliaOrchestrator()
+            return orch.run(query)
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    def _call_porpoise(self, query: str, ctx: dict) -> dict:
+        """DirectLoader: call porpoise-agent (P₁) via importlib."""
+        try:
+            import importlib.util, os
+            agent_root = os.path.join(os.path.dirname(__file__), "..", "..", "..", "porpoise-agent")
+            agent_root = os.path.normpath(os.path.abspath(agent_root))
+            agent_file = os.path.join(agent_root, "src", "agent", "orchestrator.py")
+            if not os.path.isfile(agent_file):
+                return {"status": "error", "error": f"porpoise-agent not found at {agent_file}"}
+            import sys
+            if agent_root not in sys.path:
+                sys.path.insert(0, agent_root)
+            spec = importlib.util.spec_from_file_location("porpoise.orchestrator", agent_file)
+            if spec is None or spec.loader is None:
+                return {"status": "error", "error": "porpoise import failed"}
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            orch = mod.Orchestrator()
+            import asyncio
+            return asyncio.run(orch.run(query))
         except Exception as e:
             return {"status": "error", "error": str(e)}
 

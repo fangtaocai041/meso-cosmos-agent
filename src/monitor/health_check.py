@@ -32,7 +32,8 @@ def check_all_projects() -> dict[str, dict]:
     root = Path(__file__).resolve().parent.parent.parent.parent  # meso-cosmos-agent/
     projects = {
         "fish-ecology-assistant (S)": root / "fish-ecology-assistant",
-        "porpoise-agent (P)": root / "porpoise-agent",
+        "porpoise-agent (P₁)": root / "porpoise-agent",
+        "coilia-agent (P₂)": root / "coilia-agent",
         "cognitive-search-engine (V)": root / "cognitive-search-engine",
     }
 
