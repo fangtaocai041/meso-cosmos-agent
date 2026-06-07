@@ -46,6 +46,24 @@ projects:
       - assess-threats
       - search-literature
 
+  coilia-agent:
+    role: "P₂ (Coilia Specialist)"
+    path: "../coilia-agent"
+    entry_skill: "search-literature"
+    pipeline: "5-phase: Literature → Migration → Genetics → Stock → Report"
+    species: "Coilia nasus (刀鲚/长江刀鱼)"
+    research_group: "淡水渔业研究中心 刘凯研究员课题组"
+    sister_agent: "porpoise-agent (P₁)"
+    activation_keywords:
+      - 刀鲚, 长颌鲚, 刀鱼, 长江刀鱼, Coilia nasus, tapertail anchovy
+      - 洄游, 耳石微化学, Sr/Ca, 溯河, anadromous, otolith
+      - 鲚属, 短颌鲚, 凤鲚, Coilia brachygnathus, Coilia mystus
+    exports:
+      - search-literature
+      - analyze-migration
+      - assess-stock
+      - analyze-genetics
+
   cognitive-search-engine:
     role: "V (Validation)"
     path: "../cognitive-search-engine"
@@ -70,6 +88,15 @@ routing:
   yangtze_knowledge_base: "../fish-ecology-assistant/config/yangtze_fish_species.yaml"
   
   rules:
+    # 规则0: 刀鲚/鲚属 → coilia-agent (P₂ 专研)
+    - query_contains: ["刀鲚", "长颌鲚", "刀鱼", "长江刀鱼", "Coilia nasus",
+                        "tapertail anchovy", "鲚属", "短颌鲚", "凤鲚",
+                        "Coilia brachygnathus", "Coilia mystus"]
+      route_to: "coilia-agent"
+      skill: "search-literature"
+      budget_share: 0.60
+      reason: "刀鲚专研问题 → P₂ (刘凯课题组方向, 与P₁江豚平级)"
+
     # 规则1: 江豚/鲸类 → porpoise-agent (P₁ 专研)
     - query_contains: ["江豚", "porpoise", "Neophocaena", "finless porpoise",
                         "NBHF", "click", "echolocation", "cetacean",
