@@ -135,6 +135,17 @@ class MesoOrchestrator:
         # DirectLoader module cache (lazy, ~1980 calls/s after warm)
         self._dl_cache: dict[str, object] = {}
 
+        # Chaos-Enhanced Agent Engine (Langton 1990, Chen & Aihara 1995)
+        try:
+            from pipeline.chaos_engine import get_chaos_engine
+            self._chaos = get_chaos_engine()
+        except ImportError:
+            try:
+                from src.pipeline.chaos_engine import get_chaos_engine
+                self._chaos = get_chaos_engine()
+            except ImportError:
+                self._chaos = None
+
         # Session state
         self.contradiction_signals: list[ContradictionSignal] = []
         self.verification_tags: list[VerificationTag] = []
@@ -168,6 +179,11 @@ class MesoOrchestrator:
     def run(self, query: str, context: dict | None = None) -> PipelineResult:
         """Execute the full 6-phase pipeline.
 
+        Chaos-Enhanced: each cycle advances the Rössler attractor,
+        injecting non-repeating perturbation into routing decisions.
+        EntropyGuard prevents divergence by decaying chaos coupling
+        when system entropy exceeds safe threshold.
+
         Args:
             query: Natural language research question
             context: Optional additional context
@@ -177,6 +193,14 @@ class MesoOrchestrator:
         """
         import time
         start = time.time()
+
+        # Step chaos engine — advance Rössler + Logistic + Coupling
+        if self._chaos:
+            self._chaos.step()
+            # Safety check: if entropy too high, fall back to deterministic
+            if self._chaos.safe_mode:
+                self._chaos.reset_to_safe()
+
         result = PipelineResult(query=query)
         ctx = context or {}
 
@@ -303,10 +327,14 @@ class MesoOrchestrator:
                     targets = [targets]
                 budget_split = rule.get("budget_split", {})
                 for proj in targets:
+                    # Chaos perturbation: ±0.15 on confidence (non-repeating)
+                    conf = 0.8
+                    if self._chaos and self._chaos.guard.in_safe_zone:
+                        conf += self._chaos.route_bias()
                     routes.append(RouteDecision(
                         target_project=proj,
                         skill=rule.get("skill", "search-literature"),
-                        confidence=0.8,
+                        confidence=conf,
                         reason=rule.get("reason", "routing rule matched"),
                         budget_share=budget_split.get(proj, 1.0 / len(targets)),
                     ))
@@ -344,6 +372,22 @@ class MesoOrchestrator:
                             reason="default route",
                             budget_share=split.get(proj, 1.0 / len(targets)),
                         ))
+
+        # Chaos wildcard: ~10% chance to route through unexpected expert
+        if self._chaos and self._chaos.wildcard() and self._chaos.guard.in_safe_zone:
+            all_projects = list(self.config.get("projects", {}).keys())
+            if len(all_projects) >= 2:
+                existing = {r.target_project for r in routes}
+                others = [p for p in all_projects if p not in existing]
+                if others:
+                    wildcard_proj = self._chaos.chaotic_pick(others)
+                    routes.append(RouteDecision(
+                        target_project=wildcard_proj,
+                        skill="search-literature",
+                        confidence=0.3,
+                        reason=f"chaos_wildcard (serendipity exploration)",
+                        budget_share=0.1,
+                    ))
 
         # Always include cognitive for validation
         if "cognitive-search-engine" not in {r.target_project for r in routes}:
