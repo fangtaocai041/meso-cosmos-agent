@@ -1,0 +1,123 @@
+# ═══════════════════════════════════════════════════════════════
+# Meso-Cosmos Agent — S-T-V-P 四体协调配置
+# ═══════════════════════════════════════════════════════════════
+# 角色:
+#   S (State):      fish-ecology-assistant  — 知识供给
+#   T (Transition): meso-cosmos-agent       — 核心执行层 (本项目的协调配置)
+#   V (Validation): cognitive-search-engine — 验证引擎
+#   P (Porpoise):   porpoise-agent          — 江豚专研
+#
+# 管线: UNDERSTAND → ROUTE → EXECUTE → VALIDATE → SYNTHESIZE → EVOLVE
+
+version: "1.0.0"
+root: "D:\\Reasonix"
+
+# ══════════════════════════════════════════════════════════════
+# S-T-V-P 项目注册表
+# ══════════════════════════════════════════════════════════════
+projects:
+  fish-ecology-assistant:
+    role: "S (State)"
+    path: "../fish-ecology-assistant"
+    entry_skill: "research-orchestrator"
+    pipeline: "5-stage: Plan → Search → Analyze → Write → Review"
+    activation_keywords:
+      - fish, fishery, fishing, ecology, community, isotope
+      - morphometric, diet, feeding, habitat, biodiversity
+      - species diversity, ichthyology, 鱼类, 渔业, 生态, 食性
+    exports:
+      - stats-assistant
+      - research-analyst
+      - phd-proposal-writer
+      - ima-smart-search
+
+  porpoise-agent:
+    role: "P (Porpoise)"
+    path: "../porpoise-agent"
+    entry_skill: "search-literature"
+    pipeline: "5-phase: Literature → Analysis → Survey → Conservation → Report"
+    activation_keywords:
+      - porpoise, cetacean, dolphin, whale, acoustic, click
+      - NBHF, PAM, echolocation, vocalization, bycatch
+      - 江豚, 豚类, 声学
+    exports:
+      - detect-clicks
+      - estimate-abundance
+      - assess-threats
+      - search-literature
+
+  cognitive-search-engine:
+    role: "V (Validation)"
+    path: "../cognitive-search-engine"
+    entry_skill: "graph-search-engine"
+    pipeline: "Hub-and-Spoke: Locate Hubs → Extract Spokes → Gap Detection"
+    activation_keywords:
+      - search, literature, paper, review, systematic
+      - species, taxonomy, genus, species name, OCR variant
+    exports:
+      - graph-search-engine
+      - cognitive-species-search
+      - parallel-search
+    always_validate: true
+    engine_path: "../cognitive-search-engine/"
+    loader: "importlib (DirectLoader)"
+
+# ══════════════════════════════════════════════════════════════
+# 6-Phase Pipeline Configuration
+# ══════════════════════════════════════════════════════════════
+pipeline:
+  phases:
+    understand:
+      order: 0
+      description: "Macro-BDI: parse question → classify domain → form intention"
+    route:
+      order: 1
+      description: "Meso-Coordination: query routing rules → allocate resources"
+      budget_split:
+        primary: 0.60
+        secondary: 0.30
+        peripheral: 0.10
+    execute:
+      order: 2
+      description: "Micro-Execution: delegate to project agents → monitor progress"
+      timeout_sec: 300
+      max_concurrent: 2
+    validate:
+      order: 3
+      description: "Cross-Verification: authority scoring → triangulation → contradiction detection"
+      min_sources_core_claim: 3
+      min_independent_projects: 2
+    synthesize:
+      order: 4
+      description: "Merge: combine multi-project results → unified report"
+    evolve:
+      order: 5
+      description: "Feedback: evaluate metrics → trigger adaptations → persist config"
+
+# ══════════════════════════════════════════════════════════════
+# Evolution Triggers (unified)
+# ══════════════════════════════════════════════════════════════
+evolution:
+  enabled: true
+  triggers:
+    T1_pipeline_failure:
+      condition: "pipeline_success_rate < 0.60 for 3 consecutive sessions"
+      action: "increase max_retry by 1"
+    T2_contradiction:
+      condition: "contradiction_rate > 0.30 for 3 consecutive sessions"
+      action: "increase contradiction_budget_multiplier by 0.5"
+    T3_emergence_noise:
+      condition: "new_paper_emergence_rate > 0.20 for 3 consecutive sessions"
+      action: "increase emergence_threshold by 1"
+    T4_recall_drop:
+      condition: "recall_rate < 0.85 for 3 consecutive sessions"
+      action: "increase verification_min_sources by 1"
+    T5_token_exceed:
+      condition: "avg_tokens_per_query > 2500 for 3 consecutive sessions"
+      action: "decrease max_revision_rounds by 1"
+    T6_dead_end:
+      condition: "consecutive_routing_failures >= 3"
+      action: "decrease dead_end_retreat_threshold by 1"
+    T7_health_check_failure:
+      condition: "health_check_failure_count >= 2"
+      action: "log CRITICAL + suggest restart"

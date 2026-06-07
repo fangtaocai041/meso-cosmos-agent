@@ -1,0 +1,1 @@
+# BDI — Belief-Desire-Intention model

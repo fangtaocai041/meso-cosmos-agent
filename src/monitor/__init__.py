@@ -1,0 +1,1 @@
+# Monitor — health check, entropy, self-healing, evolution triggers

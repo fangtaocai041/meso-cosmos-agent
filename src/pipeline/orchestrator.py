@@ -1,0 +1,449 @@
+"""
+Meso-Cosmos Orchestrator — 6-phase pipeline executor (T-layer core).
+
+Migrated from porpoise-agent/src/agent/orchestrator.py.
+De-porpoise-ified: all domain-specific keywords/routing moved to config.
+
+Pipeline (from meso_agent.yaml):
+  Phase 0: UNDERSTAND  — Macro-BDI intent formation
+  Phase 1: ROUTE       — Meso-Coordination routing
+  Phase 2: EXECUTE     — Micro-Execution delegation
+  Phase 3: VALIDATE    — Cross-Verification triangulation
+  Phase 4: SYNTHESIZE  — Merge multi-project results
+  Phase 5: EVOLVE      — Feedback + trigger adaptation
+
+Usage:
+    from src.pipeline.orchestrator import MesoOrchestrator
+
+    orch = MesoOrchestrator()
+    result = orch.run("长江江豚种群数量变化趋势")
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Optional
+
+logger = logging.getLogger("meso_cosmos.orchestrator")
+
+
+# ═══════════════════════════════════════════════════════════════
+# Core Enums (from porpoise orchestrator, generalized)
+# ═══════════════════════════════════════════════════════════════
+
+class ContradictionType(str, Enum):
+    ANTAGONISTIC = "antagonistic"        # BLOCK downstream
+    NON_ANTAGONISTIC = "non_antagonistic"  # PASS_WITH_NOTE
+    STRUCTURAL = "structural"            # PASS
+    PHASIC = "phasic"                    # PASS, tag for review
+
+
+class VerificationStatus(str, Enum):
+    VERIFIED = "verified"        # >=3 independent sources
+    PENDING = "pending"          # 1-2 sources
+    HYPOTHESIS = "hypothesis"    # inference only
+    UNVERIFIABLE = "unverifiable"  # BLOCKED
+
+
+class PipelinePhase(str, Enum):
+    UNDERSTAND = "understand"
+    ROUTE = "route"
+    EXECUTE = "execute"
+    VALIDATE = "validate"
+    SYNTHESIZE = "synthesize"
+    EVOLVE = "evolve"
+
+
+# ═══════════════════════════════════════════════════════════════
+# Data Classes
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class ContradictionSignal:
+    primary_contradiction: str
+    primary_aspect: str = ""
+    secondary_contradictions: list[str] = field(default_factory=list)
+    contradiction_type: ContradictionType = ContradictionType.NON_ANTAGONISTIC
+    budget_multiplier: float = 2.5
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+@dataclass
+class VerificationTag:
+    claim: str
+    status: VerificationStatus = VerificationStatus.PENDING
+    sources: int = 0
+
+
+@dataclass
+class RouteDecision:
+    target_project: str       # "fish-ecology-assistant" | "porpoise-agent" | "cognitive-search-engine"
+    skill: str
+    confidence: float
+    reason: str
+    budget_share: float = 1.0
+
+
+@dataclass
+class PipelineResult:
+    query: str
+    phases_executed: list[str] = field(default_factory=list)
+    route_decisions: list[RouteDecision] = field(default_factory=list)
+    contradiction: Optional[dict] = None
+    verification_tags: list[VerificationTag] = field(default_factory=list)
+    project_results: dict[str, dict] = field(default_factory=dict)
+    synthesis: str = ""
+    evolution_actions: list[dict] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    elapsed_sec: float = 0.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# Orchestrator
+# ═══════════════════════════════════════════════════════════════
+
+class MesoOrchestrator:
+    """6-phase Meso-Cosmos pipeline executor.
+
+    Architecture:
+      Macro(BDI意图) → Meso(跨项目协调) → Micro(项目执行)
+    """
+
+    PHASE_ORDER = [
+        PipelinePhase.UNDERSTAND,
+        PipelinePhase.ROUTE,
+        PipelinePhase.EXECUTE,
+        PipelinePhase.VALIDATE,
+        PipelinePhase.SYNTHESIZE,
+        PipelinePhase.EVOLVE,
+    ]
+
+    def __init__(self, config_path: str = "config/coordination.yaml"):
+        self.config_path = config_path
+        self.config: dict = {}
+        self._load_config()
+        self._disabled_components: set[str] = set()
+
+        # Session state
+        self.contradiction_signals: list[ContradictionSignal] = []
+        self.verification_tags: list[VerificationTag] = []
+        self._source_cache: dict[str, list[str]] = {}
+
+    def _load_config(self):
+        try:
+            import yaml
+            from pathlib import Path
+            path = Path(self.config_path)
+            if path.exists():
+                with open(path, encoding="utf-8") as f:
+                    self.config = yaml.safe_load(f) or {}
+        except Exception:
+            self.config = {}
+
+    # ── Public API ──
+
+    def run(self, query: str, context: dict | None = None) -> PipelineResult:
+        """Execute the full 6-phase pipeline.
+
+        Args:
+            query: Natural language research question
+            context: Optional additional context
+
+        Returns:
+            PipelineResult with all phase outputs
+        """
+        import time
+        start = time.time()
+        result = PipelineResult(query=query)
+        ctx = context or {}
+
+        try:
+            # ── Phase 0: UNDERSTAND ──
+            intent = self._phase_understand(query, ctx)
+            result.contradiction = intent.get("contradiction")
+            result.phases_executed.append("understand")
+
+            # ── Phase 1: ROUTE ──
+            routes = self._phase_route(query, intent)
+            result.route_decisions = routes
+            result.phases_executed.append("route")
+
+            # ── Phase 2: EXECUTE ──
+            exec_results = self._phase_execute(routes, query, ctx)
+            result.project_results = exec_results
+            result.phases_executed.append("execute")
+
+            # ── Phase 3: VALIDATE ──
+            validation = self._phase_validate(exec_results)
+            result.verification_tags = validation.get("tags", [])
+            if validation.get("violations"):
+                result.errors.extend(validation["violations"])
+            result.phases_executed.append("validate")
+
+            # ── Phase 4: SYNTHESIZE ──
+            result.synthesis = self._phase_synthesize(exec_results, validation)
+            result.phases_executed.append("synthesize")
+
+            # ── Phase 5: EVOLVE ──
+            evo = self._phase_evolve(result)
+            result.evolution_actions = evo
+            result.phases_executed.append("evolve")
+
+        except Exception as e:
+            logger.exception("Pipeline failed")
+            result.errors.append(f"{type(e).__name__}: {e}")
+
+        result.elapsed_sec = round(time.time() - start, 3)
+        return result
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 0: UNDERSTAND — Macro-BDI Intent Formation
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_understand(self, query: str, ctx: dict) -> dict:
+        """Parse query → classify domain → identify contradiction → form intent."""
+        q_lower = query.lower()
+
+        # Domain classification via config-driven keyword matching
+        projects = self.config.get("projects", {})
+        domain_scores = {}
+        for proj_name, proj_cfg in projects.items():
+            keywords = proj_cfg.get("activation_keywords", [])
+            score = sum(1 for kw in keywords if kw.lower() in q_lower)
+            if score > 0:
+                domain_scores[proj_name] = score
+
+        # Contradiction analysis
+        contradiction = self._analyze_contradiction(query, domain_scores)
+
+        return {
+            "query": query,
+            "domain_scores": domain_scores,
+            "primary_domain": max(domain_scores, key=domain_scores.get) if domain_scores else "cognitive-search-engine",
+            "contradiction": {
+                "primary": contradiction.primary_contradiction,
+                "type": contradiction.contradiction_type.value,
+                "budget_multiplier": contradiction.budget_multiplier,
+            },
+        }
+
+    def _analyze_contradiction(self, query: str, domain_scores: dict) -> ContradictionSignal:
+        """Keyword-based contradiction analysis → structured routing signal."""
+        q_lower = query.lower()
+
+        # Data scarcity: no domain matched → exhaustive search
+        if not domain_scores:
+            return ContradictionSignal(
+                primary_contradiction="DOMAIN_AMBIGUITY",
+                primary_aspect="no_clear_domain_match",
+                contradiction_type=ContradictionType.STRUCTURAL,
+                budget_multiplier=1.0,
+            )
+
+        # Cross-domain: multiple domains matched → coordinate
+        if len(domain_scores) >= 2:
+            return ContradictionSignal(
+                primary_contradiction="CROSS_DOMAIN_COORDINATION",
+                primary_aspect="multi_project_routing",
+                contradiction_type=ContradictionType.NON_ANTAGONISTIC,
+                budget_multiplier=2.0,
+            )
+
+        # Single domain → delegate
+        return ContradictionSignal(
+            primary_contradiction="SINGLE_DOMAIN_DELEGATION",
+            primary_aspect=list(domain_scores.keys())[0],
+            contradiction_type=ContradictionType.NON_ANTAGONISTIC,
+            budget_multiplier=1.0,
+        )
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 1: ROUTE — Meso-Coordination
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_route(self, query: str, intent: dict) -> list[RouteDecision]:
+        """Route to S-T-V-P projects based on intent and config routing rules."""
+        routes = []
+        domain_scores = intent.get("domain_scores", {})
+        contradiction = intent.get("contradiction", {})
+        budget_mult = contradiction.get("budget_multiplier", 1.0)
+        projects = self.config.get("projects", {})
+
+        total_score = sum(domain_scores.values()) or 1
+
+        for proj_name, score in sorted(domain_scores.items(), key=lambda x: -x[1]):
+            proj_cfg = projects.get(proj_name, {})
+            entry_skill = proj_cfg.get("entry_skill", "search-literature")
+            budget_share = (score / total_score) * budget_mult if contradiction.get("type") == "antagonistic" else score / total_score
+
+            routes.append(RouteDecision(
+                target_project=proj_name,
+                skill=entry_skill,
+                confidence=min(score / max(total_score, 1), 1.0),
+                reason=f"domain keywords matched (score={score})",
+                budget_share=min(budget_share, 1.0),
+            ))
+
+        # Always include cognitive for validation
+        if "cognitive-search-engine" not in domain_scores:
+            routes.append(RouteDecision(
+                target_project="cognitive-search-engine",
+                skill="graph-search-engine",
+                confidence=0.5,
+                reason="always-validate gate",
+                budget_share=0.2,
+            ))
+
+        return routes
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 2: EXECUTE — Micro-Execution
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_execute(self, routes: list[RouteDecision], query: str, ctx: dict) -> dict[str, dict]:
+        """Delegate to project agents and collect results."""
+        results = {}
+
+        for route in routes:
+            proj = route.target_project
+            try:
+                # Try DirectLoader for cognitive-search-engine
+                if proj == "cognitive-search-engine":
+                    result = self._call_cognitive(query, ctx)
+                else:
+                    # Format DELEGATE protocol message
+                    result = {
+                        "status": "delegated",
+                        "delegate_message": (
+                            f"DELEGATE to {proj}:\n"
+                            f"  skill: {route.skill}\n"
+                            f"  context: query={query}\n"
+                            f"  budget_share: {route.budget_share}"
+                        ),
+                    }
+                results[proj] = result
+            except Exception as e:
+                results[proj] = {"status": "error", "error": str(e)}
+
+        return results
+
+    def _call_cognitive(self, query: str, ctx: dict) -> dict:
+        """DirectLoader: call cognitive-search-engine via importlib."""
+        try:
+            import importlib.util
+            import os
+            engine_root = os.path.join(
+                os.path.dirname(__file__), "..", "..", "..",
+                "cognitive-search-engine"
+            )
+            engine_root = os.path.normpath(os.path.abspath(engine_root))
+            engine_file = os.path.join(engine_root, "src", "meso_agent.py")
+
+            if not os.path.isfile(engine_file):
+                return {"status": "unavailable", "reason": "cognitive engine not found"}
+
+            spec = importlib.util.spec_from_file_location("cogsearch.meso", engine_file)
+            if spec is None or spec.loader is None:
+                return {"status": "error", "reason": "import failed"}
+
+            import sys
+            if engine_root not in sys.path:
+                sys.path.insert(0, engine_root)
+
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            agent = mod.create_agent(mode="http")
+            result = agent.search(query.replace(" ", "_"))
+            return result.to_dict() if hasattr(result, 'to_dict') else {"status": "ok", "result": str(result)}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 3: VALIDATE — Cross-Verification
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_validate(self, exec_results: dict[str, dict]) -> dict:
+        """Cross-validate results across projects using cognitive validator."""
+        tags = []
+        violations = []
+
+        for proj, result in exec_results.items():
+            papers = result.get("papers", [])
+            sources = len(papers)
+            status = (
+                VerificationStatus.VERIFIED if sources >= 3
+                else VerificationStatus.PENDING if sources >= 1
+                else VerificationStatus.UNVERIFIABLE
+            )
+            tags.append(VerificationTag(
+                claim=f"{proj} output ({sources} papers)",
+                status=status,
+                sources=sources,
+            ))
+
+        # Check cross-project independence
+        unique_projects = len([r for r in exec_results.values() if r.get("status") not in ("error", "unavailable")])
+        if unique_projects < 2:
+            violations.append(
+                f"DEPENDENCY_RISK: only {unique_projects} project(s) contributed. "
+                f"Cross-project triangulation requires at least 2."
+            )
+
+        return {"tags": tags, "violations": violations}
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 4: SYNTHESIZE — Merge
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_synthesize(self, exec_results: dict[str, dict], validation: dict) -> str:
+        """Merge multi-project results into a unified synthesis."""
+        parts = []
+        for proj, result in exec_results.items():
+            status = result.get("status", "unknown")
+            papers = len(result.get("papers", []))
+            parts.append(f"- **{proj}**: {status}, {papers} papers")
+
+        violations = validation.get("violations", [])
+        if violations:
+            parts.append(f"\n⚠️ **Validation warnings**:")
+            for v in violations:
+                parts.append(f"  - {v}")
+
+        return "\n".join(parts)
+
+    # ═══════════════════════════════════════════════════════════
+    # Phase 5: EVOLVE — Feedback
+    # ═══════════════════════════════════════════════════════════
+
+    def _phase_evolve(self, result: PipelineResult) -> list[dict]:
+        """Evaluate metrics, trigger adaptations."""
+        try:
+            from src.monitor.evolution_executor import EvolutionExecutor
+            executor = EvolutionExecutor()
+            metrics = {
+                "pipeline_success_rate": 0.0 if result.errors else 1.0,
+                "recall_rate": sum(
+                    len(r.get("papers", [])) for r in result.project_results.values()
+                ) / max(len(result.project_results), 1),
+            }
+            actions = executor.evaluate_and_adapt(metrics)
+            return [
+                {"param": a.param, "old": a.old_value, "new": a.new_value, "trigger": a.trigger_name}
+                for a in actions if a.param
+            ]
+        except ImportError:
+            return []
+
+
+# ═══════════════════════════════════════════════════════════════
+# Convenience
+# ═══════════════════════════════════════════════════════════════
+
+def run_pipeline(query: str) -> PipelineResult:
+    """One-liner: run the full 6-phase pipeline."""
+    orch = MesoOrchestrator()
+    return orch.run(query)

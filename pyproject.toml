@@ -1,0 +1,19 @@
+[project]
+name = "meso-cosmos-agent"
+version = "1.0.0"
+description = "Meso-Cosmos Agent — S-T-V-P 四体架构中的 T (Transition) 核心执行层"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+meso = "src.main:main"
+
+[tool.meso]
+# S-T-V-P 项目注册
+projects = [
+    { name = "fish-ecology-assistant", role = "S", path = "../fish-ecology-assistant" },
+    { name = "porpoise-agent", role = "P", path = "../porpoise-agent" },
+    { name = "cognitive-search-engine", role = "V", path = "../cognitive-search-engine" },
+]
