@@ -96,3 +96,15 @@ python ../scripts/run_all_tests.py --quick
 
 > **核心优势**: 将 DeepSeek 架构哲学 (MoE+MLA+MTP)、学术统计理论 (Rule of Three)、混沌动力学 (Edge of Chaos) 三层融合，在最优能耗下达到科学家认可的信息增益阈值即停止。
 > **待改进**: DirectLoader 错误恢复机制、coilia-agent 实际搜索执行（目前为 delegation stub）
+
+---
+
+## 📋 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| **v1.2** | 2026-06-08 | 混沌增强智能体 (Rössler + Logistic + EntropyGuard) + 三级压力测试集 |
+| **v1.1** | 2026-06-08 | 学者级统计停止 (Rule of Three) + DeepSeek 三层优化架构 |
+| **v1.0** | 2026-06-07 | 初始发布 — 6-phase 管线 + S-T-V-P₁-P₂ 协调 + validator + evolution_executor |
+
+> **最新**: v1.2 · 2026-06-08 · `a633dc2`
