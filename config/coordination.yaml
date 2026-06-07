@@ -63,6 +63,53 @@ projects:
     loader: "importlib (DirectLoader)"
 
 # ══════════════════════════════════════════════════════════════
+# 智能路由规则 — 江豚→P₁, 特定鱼类→V, 生态问题→S
+# ══════════════════════════════════════════════════════════════
+routing:
+  # 长江流域知识库
+  yangtze_knowledge_base: "../fish-ecology-assistant/config/yangtze_fish_species.yaml"
+  
+  rules:
+    # 规则1: 江豚/鲸类 → porpoise-agent (P₁ 专研)
+    - query_contains: ["江豚", "porpoise", "Neophocaena", "finless porpoise",
+                        "NBHF", "click", "echolocation", "cetacean",
+                        "声学", "PAM", "被动声学"]
+      route_to: "porpoise-agent"
+      skill: "search-literature"
+      budget_share: 0.60
+      reason: "江豚专研问题 → P₁ (刘凯课题组方向)"
+
+    # 规则2: 特定鱼类物种名 → cognitive-search-engine + fish-ecology
+    - query_contains: ["鲟", "鳤", "鯮", "鳡", "鲥", "胭脂鱼", "白鲟",
+                        "中华鲟", "长江鲟", "铜鱼", "鳜", "翘嘴鲌",
+                        "Acipenser", "Ochetobius", "Luciobrama",
+                        "Elopichthys", "Tenualosa", "Myxocyprinus"]
+      route_to: ["cognitive-search-engine", "fish-ecology-assistant"]
+      budget_split: {cognitive: 0.40, fish: 0.40, porpoise: 0.20}
+      reason: "特定鱼类 → V深度搜索 + S生态分析"
+
+    # 规则3: 长江生态/资源/禁捕 → fish-ecology-assistant
+    - query_contains: ["长江", "禁捕", "资源量", "优势种", "水质", "消落区",
+                        "渔业", "捕捞", "Yangtze", "fishery", "生态",
+                        "栖息地", "多样性", "community", "diversity"]
+      route_to: "fish-ecology-assistant"
+      skill: "research-orchestrator"
+      budget_share: 0.70
+      reason: "长江生态问题 → S (12引擎 + 5阶段流水线)"
+
+    # 规则4: 文献/综述 → cognitive-search-engine (always validate)
+    - query_contains: ["文献", "综述", "review", "论文", "paper",
+                        "progress", "研究进展", "系统发育"]
+      route_to: "cognitive-search-engine"
+      skill: "graph-search-engine"
+      budget_share: 0.50
+      reason: "文献搜索 → V (认知搜索 + 三角验证)"
+
+    # 默认: 三项目协同
+    - default: ["cognitive-search-engine", "fish-ecology-assistant"]
+      budget_split: {cognitive: 0.30, fish: 0.50, porpoise: 0.20}
+
+# ══════════════════════════════════════════════════════════════
 # 6-Phase Pipeline Configuration
 # ══════════════════════════════════════════════════════════════
 pipeline:
