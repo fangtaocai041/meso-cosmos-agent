@@ -188,13 +188,53 @@ class MesoOrchestrator:
 
     # ── Public API ──
 
+    def detect_mode(self) -> str:
+        """Detect available projects → return operating mode.
+
+        'full':      All 4 projects available (S+V+P₁+P₂)
+        'partial':   Some projects available
+        'standalone': Only meso-cosmos itself (graceful degradation)
+        """
+        available = []
+        for proj_name, proj_path in [
+            ("cognitive", "cognitive-search-engine"),
+            ("fish", "fish-ecology-assistant"),
+            ("porpoise", "porpoise-agent"),
+            ("coilia", "coilia-agent"),
+        ]:
+            import os
+            base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if os.path.isdir(os.path.join(base, proj_path)):
+                available.append(proj_name)
+        if len(available) >= 4: return "full"
+        if len(available) >= 1: return "partial"
+        return "standalone"
+
+    @property
+    def standalone_capabilities(self) -> dict:
+        """Capabilities when running in standalone mode (no other projects)."""
+        return {
+            "route_analysis": "Query classification + contradiction analysis (always available)",
+            "knowledge_gaps": "Gap detection without external search",
+            "health_check": "Self-diagnostic only",
+            "limitations": [
+                "No DirectLoader to cognitive/coilia/porpoise",
+                "No cross-project validation",
+                "No external paper search",
+            ],
+            "recommendation": "Install at least cognitive-search-engine for species search capability",
+        }
+
     def run(self, query: str, context: dict | None = None) -> PipelineResult:
         """Execute the full 6-phase pipeline.
 
-        Chaos-Enhanced: each cycle advances the Rössler attractor,
-        injecting non-repeating perturbation into routing decisions.
-        EntropyGuard prevents divergence by decaying chaos coupling
-        when system entropy exceeds safe threshold.
+        Modes:
+          - Full: All 4 projects available → complete S-T-V-P pipeline
+          - Partial: Some projects → graceful degradation
+          - Standalone: Only meso-cosmos → route analysis + limitation report
+
+        Chaos-Enhanced: each cycle advances the Rössler attractor.
+        EntropyGuard prevents divergence.
 
         Args:
             query: Natural language research question
@@ -206,10 +246,12 @@ class MesoOrchestrator:
         import time
         start = time.time()
 
+        # Detect operating mode
+        mode = self.detect_mode()
+
         # Step chaos engine — advance Rössler + Logistic + Coupling
         if self._chaos:
             self._chaos.step()
-            # Safety check: if entropy too high, fall back to deterministic
             if self._chaos.safe_mode:
                 self._chaos.reset_to_safe()
 
@@ -259,10 +301,19 @@ class MesoOrchestrator:
             result.errors.append(f"{type(e).__name__}: {e}")
 
         result.elapsed_sec = round(time.time() - start, 3)
+        # Attach mode info
+        result.synthesis = f"[Mode: {mode}] " + (result.synthesis or "")
+        if mode == "standalone":
+            result.synthesis += (
+                f"\n\n⚠️ Standalone mode — limited capabilities:\n"
+                + "\n".join(f"  • {c}" for c in self.standalone_capabilities["limitations"])
+                + f"\n\n💡 {self.standalone_capabilities['recommendation']}"
+            )
         # BDI trace: record final state
         bdi_entry["belief"]["papers_found"] = sum(
             len(r.get("papers", [])) for r in result.project_results.values()
         )
+        bdi_entry["belief"]["mode"] = mode
         bdi_entry["intention"]["executed"] = result.phases_executed
         self._bdi_trace.append(bdi_entry)
         result.bdi_trace = self._bdi_trace  # attach to result for audit
