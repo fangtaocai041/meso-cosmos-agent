@@ -135,6 +135,14 @@ class MesoOrchestrator:
         # DirectLoader module cache (lazy, ~1980 calls/s after warm)
         self._dl_cache: dict[str, object] = {}
 
+        # DirectLoader security whitelist (P4: module allowlist)
+        self._DL_WHITELIST: set[str] = {
+            "cognitive-search-engine/src/meso_agent.py",
+            "cognitive-search-engine/src/rule_engine.py",
+            "coilia-agent/src/agent/orchestrator.py",
+            "porpoise-agent/src/agent/orchestrator.py",
+        }
+
         # Chaos-Enhanced Agent Engine (Langton 1990, Chen & Aihara 1995)
         try:
             from pipeline.chaos_engine import get_chaos_engine
@@ -439,7 +447,9 @@ class MesoOrchestrator:
         return results
 
     def _call_cognitive(self, query: str, ctx: dict) -> dict:
-        """DirectLoader: call cognitive-search-engine via importlib (cached)."""
+        """DirectLoader: call cognitive-search-engine via importlib (cached, whitelisted)."""
+        if not any("cognitive-search-engine" in m for m in self._DL_WHITELIST):
+            return {"status": "blocked", "error": "module not in DirectLoader whitelist"}
         try:
             if "cognitive" in self._dl_cache:
                 create_agent = self._dl_cache["cognitive"]
@@ -467,7 +477,9 @@ class MesoOrchestrator:
             return {"status": "error", "error": str(e)}
 
     def _call_coilia(self, query: str, ctx: dict) -> dict:
-        """DirectLoader: call coilia-agent (P₂) via importlib (cached)."""
+        """DirectLoader: call coilia-agent (P₂) via importlib (cached, whitelisted)."""
+        if "coilia-agent/src/agent/orchestrator.py" not in self._DL_WHITELIST:
+            return {"status": "blocked", "error": "module not in DirectLoader whitelist"}
         try:
             # Use cached module if available
             if "coilia" in self._dl_cache:

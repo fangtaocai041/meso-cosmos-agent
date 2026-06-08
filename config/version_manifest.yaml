@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════
+# Version Manifest — 版本清单 (P0: 可验证自进化管线)
+# ═══════════════════════════════════════════════════════════════
+# 每个版本绑定: 组件 SHA · 测试集 · 破坏性变更 · 回滚路径
+
+manifest:
+  version: "5.1"
+  date: "2026-06-08"
+  projects:
+    meso-cosmos-agent:
+      version: "v1.2"
+      commit: "30f18d8"
+      components:
+        orchestrator: { file: "src/pipeline/orchestrator.py", sha: "pending" }
+        chaos_engine: { file: "src/pipeline/chaos_engine.py", sha: "pending" }
+        search_optimizer: { file: "src/pipeline/search_optimizer.py", sha: "pending" }
+        validator: { file: "src/monitor/validator.py", sha: "pending" }
+        evolution_executor: { file: "src/monitor/evolution_executor.py", sha: "pending" }
+      passing_tests: ["scripts/run_all_tests.py --level high (240/240)"]
+      breaking_changes: []
+
+    cognitive-search-engine:
+      version: "v5.2.2"
+      commit: "d357ea7"
+      components:
+        validator: { file: "src/validator.py", sha: "pending" }
+        evolution_executor: { file: "src/evolution_executor.py", sha: "pending" }
+        paper_health_check: { file: "src/paper_health_check.py", sha: "pending" }
+        meso_agent: { file: "src/meso_agent.py", sha: "pending" }
+        rule_engine: { file: "src/rule_engine.py", sha: "pending" }
+      passing_tests: ["46 integration + 94 robustness = 140 tests"]
+      breaking_changes: ["_trust_score now delegates to validator.py"]
+
+    porpoise-agent:
+      version: "v4.2"
+      commit: "9129d75"
+      components:
+        orchestrator: { file: "src/agent/orchestrator.py", sha: "pending" }
+      passing_tests: ["56 pytest + 46 integration = 102 tests"]
+      breaking_changes: ["T1_expiry: flagged_for_review → auto_disabled"]
+
+    fish-ecology-assistant:
+      version: "v6.2"
+      commit: "374715b"
+      components:
+        yangtze_kb: { file: "config/yangtze_fish_species.yaml", sha: "pending" }
+        engineering_grammar: { file: ".reasonix/handbooks/engineering-grammar.md", sha: "pending" }
+      passing_tests: ["cross-project validation + rule compliance"]
+      breaking_changes: []
+
+    coilia-agent:
+      version: "v1.0"
+      commit: "d50782b"
+      components:
+        orchestrator: { file: "src/agent/orchestrator.py", sha: "pending" }
+        knowledge_base: { file: "data/knowledge_base/species/coilia-nasus.md", sha: "pending" }
+      passing_tests: ["module import + health check"]
+      breaking_changes: []
+
+  # ═══════════════════════════════════════════════════════════
+  # 回滚路径
+  # ═══════════════════════════════════════════════════════════
+  rollback:
+    strategy: "git revert to previous commit"
+    pre_rollback_checks:
+      - "所有 evolution-log.jsonl 已备份"
+      - "5 项目 health check 已通过"
+      - "DirectLoader whitelist 已备份"
+    post_rollback_checks:
+      - "run_all_tests.py --level medium (245/245)"
+      - "health check all 5 projects"
+
+  # ═══════════════════════════════════════════════════════════
+  # 版本发布门禁
+  # ═══════════════════════════════════════════════════════════
+  release_gate:
+    required:
+      - "run_all_tests.py --level high: 240/240"
+      - "Git status: all 5 repos clean"
+      - "observable_metrics.yaml: all params in range"
+      - "DirectLoader whitelist: verified"
+    recommended:
+      - "evolution-log.jsonl: no spikes in last 10 entries"
+      - "code coverage report generated"

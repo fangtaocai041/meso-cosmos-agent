@@ -1,0 +1,96 @@
+# ═══════════════════════════════════════════════════════════════
+# 可观测性指标定义 — Observable Metrics Specification (P5)
+# ═══════════════════════════════════════════════════════════════
+# 每个参数: 定义 · 物理含义 · 默认值 · 范围 · 步长 · 校准方法 · 溢出动作
+
+metrics:
+  # ── T1: pipeline_failure ──
+  contradiction_budget_multiplier:
+    definition: "主要矛盾方向的资源倍率。2.5 表示主要方向获得 2.5x token 预算"
+    default: 2.5
+    range: [1.5, 4.0]
+    step: 0.5
+    calibration: "自动: 矛盾解决率 < 0.3 连续 5 session → +0.5"
+    overflow_action: "上限 4.0 封顶，触发人工审查告警"
+    metric_key: "contradiction_resolution_rate"
+
+  # ── T2: contradiction ──
+  verification_min_sources:
+    definition: "核心声明需要的最少独立来源数"
+    default: 3
+    range: [2, 5]
+    step: 1
+    calibration: "自动: 三角验证矛盾率 > 0.3 连续 3 session → +1"
+    overflow_action: "上限 5 封顶，触发人工审查告警"
+    metric_key: "contradiction_rate"
+
+  # ── T3: emergence_noise ──
+  emergence_threshold:
+    definition: "触发涌现信号的最小独立源数量"
+    default: 3
+    range: [2, 6]
+    step: 1
+    calibration: "自动: 涌现误报率 > 0.2 连续 3 session → +1 (提高门槛)"
+    overflow_action: "上限 6 封顶，误报率持续高则标记 emergence_noise_alert"
+    metric_key: "new_paper_emergence_rate"
+
+  # ── T4: recall_drop ──
+  max_revision_rounds:
+    definition: "报告最大修订迭代次数"
+    default: 3
+    range: [2, 5]
+    step: 1
+    calibration: "自动: 验证通过率 < 0.5 连续 3 session → +1"
+    overflow_action: "上限 5 封顶"
+    metric_key: "verification_pass_rate"
+
+  # ── T5: token_exceed ──
+  max_tokens_per_query:
+    definition: "单次查询的 token 消耗上限"
+    default: 2500
+    range: [1000, 5000]
+    step: 500
+    calibration: "自动: token > 2500 连续 3 session → 减少 max_revision_rounds"
+    overflow_action: "上限 5000 封顶"
+    metric_key: "avg_tokens_per_query"
+
+  # ── T6: dead_end ──
+  dead_end_retreat_threshold:
+    definition: "连续无进展 phase 数后触发战略撤退"
+    default: 2
+    range: [1, 4]
+    step: 1
+    calibration: "自动: 连续路由失败 ≥ 3 → -1 (更早撤退)"
+    overflow_action: "下限 1 封底"
+    metric_key: "consecutive_routing_failures"
+
+  # ── T7: health_check_failure ──
+  health_check_max_failures:
+    definition: "项目健康检查连续失败次数上限 (触发人工介入)"
+    default: 2
+    range: [1, 5]
+    step: 1
+    calibration: "手动: 由运维根据环境稳定性设定"
+    overflow_action: "触发 CRITICAL 告警 + 建议重启"
+    metric_key: "health_check_failure_count"
+
+# ═══════════════════════════════════════════════════════════════
+# 元监控分界 (Meta-Monitoring Boundary)
+# ═══════════════════════════════════════════════════════════════
+meta_monitoring:
+  definition: >
+    可观测指标 (observable metrics) 是系统内部状态的外部表现，
+    元监控 (meta-monitoring) 是对这些指标的监测逻辑本身。
+    分界: 当可观测指标触发阈值 → 元监控决定 action → 记录到 evolution-log.jsonl
+    
+  pre_mortem_checklist:
+    - "contradiction_budget_multiplier 是否在 [1.5, 4.0] 范围内？"
+    - "verification_min_sources 是否在 [2, 5] 范围内？"
+    - "evolution-log.jsonl 最近 10 条是否无异常 spike？"
+    - "5 项目健康检查全部 ok？"
+    - "DirectLoader whitelist 未被篡改？"
+  
+  alert_thresholds:
+    contradiction_budget_multiplier_at_max: "连续触发 3 次 → 标记为 '需要人工重新评估主要矛盾分类'"
+    verification_min_sources_at_max: "min_sources=5 且 pass_rate 仍然 < 0.5 → 标记为 '数据源质量可能有问题'"
+    evolution_log_spike: "单日调参次数 > 10 → 标记为 'possible goal drift'"
