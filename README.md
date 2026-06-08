@@ -100,4 +100,4 @@ python scripts/run_all_tests.py --level high    # Stress+Coordination (240 tests
 | **v1.2.0** | 2026-06-08 | Scholarly stopping (Rule of Three) + DeepSeek 3-layer optimization |
 | **v1.0.0** | 2026-06-07 | Initial — 6-phase pipeline + S-T-V-P₁-P₂ coordination |
 
-> **Latest**: v2.0.0 · 2026-06-08 · `47abc90`
+> **Latest**: v2.0.0 · 2026-06-08 · `f9d5424`
