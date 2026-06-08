@@ -99,6 +99,7 @@ class PipelineResult:
     evolution_actions: list[dict] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     elapsed_sec: float = 0.0
+    bdi_trace: list[dict] = field(default_factory=list)  # P2: BDI audit trail
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -159,6 +160,9 @@ class MesoOrchestrator:
         self.verification_tags: list[VerificationTag] = []
         self._source_cache: dict[str, list[str]] = {}
 
+        # BDI trace log (P2: provable BDI architecture)
+        self._bdi_trace: list[dict] = []
+
     def reset(self):
         """Clear session state for clean reuse (stress test / long-running server)."""
         self.contradiction_signals.clear()
@@ -212,14 +216,20 @@ class MesoOrchestrator:
         result = PipelineResult(query=query)
         ctx = context or {}
 
+        # BDI: record initial belief state
+        bdi_entry = {"phase": "BDI_init", "query": query[:80], "belief": {}, "desire": {}, "intention": {}}
+
         try:
             # ── Phase 0: UNDERSTAND ──
             intent = self._phase_understand(query, ctx)
             result.contradiction = intent.get("contradiction")
             result.phases_executed.append("understand")
+            bdi_entry["belief"]["domain_scores"] = intent.get("domain_scores", {})
+            bdi_entry["desire"]["primary_domain"] = intent.get("primary_domain", "unknown")
 
             # ── Phase 1: ROUTE ──
             routes = self._phase_route(query, intent)
+            bdi_entry["intention"]["routes"] = [r.target_project for r in routes]
             result.route_decisions = routes
             result.phases_executed.append("route")
 
@@ -249,6 +259,13 @@ class MesoOrchestrator:
             result.errors.append(f"{type(e).__name__}: {e}")
 
         result.elapsed_sec = round(time.time() - start, 3)
+        # BDI trace: record final state
+        bdi_entry["belief"]["papers_found"] = sum(
+            len(r.get("papers", [])) for r in result.project_results.values()
+        )
+        bdi_entry["intention"]["executed"] = result.phases_executed
+        self._bdi_trace.append(bdi_entry)
+        result.bdi_trace = self._bdi_trace  # attach to result for audit
         return result
 
     # ═══════════════════════════════════════════════════════════
