@@ -301,6 +301,31 @@ class MesoOrchestrator:
             result.errors.append(f"{type(e).__name__}: {e}")
 
         result.elapsed_sec = round(time.time() - start, 3)
+
+        # ── Post-pipeline: Independent Evaluation (P1) ──
+        try:
+            from monitor.eval_agent import evaluate_pipeline_result
+            eval_report = evaluate_pipeline_result({
+                "project_results": result.project_results,
+                "validation": getattr(result, "validation", {}),
+                "contradiction": result.contradiction or {},
+                "route_decisions": [
+                    {"target_project": r.target_project}
+                    for r in (result.route_decisions or [])
+                ],
+                "phases_executed": result.phases_executed,
+                "errors": result.errors,
+                "elapsed_sec": result.elapsed_sec,
+            })
+            result.synthesis += (
+                f"\n\n📊 [Eval: {'✅' if eval_report.overall_pass else '⚠️'}] "
+                f"integration={'pass' if eval_report.overall_pass else 'review needed'}"
+            )
+            if eval_report.needs_human_review:
+                result.errors.extend(eval_report.human_checklist)
+        except ImportError:
+            pass
+
         # Attach mode info
         result.synthesis = f"[Mode: {mode}] " + (result.synthesis or "")
         if mode == "standalone":
