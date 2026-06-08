@@ -123,6 +123,8 @@ python ../scripts/run_all_tests.py --quick
 | 🚀 可扩展性 | ⭐⭐⭐⭐☆ | P 层模板可复制，新物种 Agent 即插即用 |
 
 > **核心优势**: 将 DeepSeek 架构哲学 (MoE+MLA+MTP)、学术统计理论 (Rule of Three)、混沌动力学 (Edge of Chaos) 三层融合，在最优能耗下达到科学家认可的信息增益阈值即停止。
+>
+> **快的根因**: 道家哲学 → 工程语言化 → 清晰的模块边界 → 短验证路径。不是"测得快"，是"不该测的不测，该测的一条路径直达"。tao.yaml 明确角色、wuxing.yaml 明确流转、小宇宙独立可测、DL 缓存 224× 加速。
 > **待改进**: DirectLoader 错误恢复机制、coilia-agent 实际搜索执行（目前为 delegation stub）
 
 ---
