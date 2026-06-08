@@ -1,0 +1,14 @@
+# 🔥 Wuxing Manifest — 五行配置
+wuxing:
+  element: "火"        # 火·升腾·驱动
+  phase: "升腾"
+  direction: "向上·向外"
+  generates: "土"       # 火生土: T协调 → S知识
+  controls: "金"        # 火克金: T路由 → P₁专研约束
+  generated_by: "木"    # 木生火: V搜索 → T决策
+  controlled_by: "水"   # 水克火: P₂深度 → T广度制约
+  health:
+    metric: "pipeline_throughput"
+    normal_range: [0.5, 0.95]
+    excess_action: "降低 max_concurrent"
+    deficiency_action: "增加 max_concurrent"
