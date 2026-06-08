@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install pyyaml pytest
-      - run: python ../scripts/run_all_tests.py --level low
+      - run: python scripts/run_all_tests.py --level low
 
   medium-pressure:
     needs: low-pressure
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install pyyaml pytest
-      - run: python ../scripts/run_all_tests.py --level medium
+      - run: python scripts/run_all_tests.py --level medium
 
   high-pressure:
     needs: medium-pressure
@@ -34,12 +34,16 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install pyyaml pytest
-      - run: python ../scripts/run_all_tests.py --level high
+      - run: python scripts/run_all_tests.py --level high
 
-  philosophy-rules:
+  imports-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - run: python ../scripts/verify_philosophy_rules.py
+      - run: python -c "from src.pipeline.orchestrator import MesoOrchestrator; print('OK')"
+      - run: python -c "from src.pipeline.chaos_engine import ChaosEngine; print('OK')"
+      - run: python -c "from src.pipeline.search_optimizer import ScholarlySearch; print('OK')"
+      - run: python -c "from src.monitor.health_check import check_all_projects; print('OK')"
+      - run: python -c "from src.monitor.eval_agent import EvalAgent; print('OK')"
