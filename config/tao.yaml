@@ -1,0 +1,26 @@
+# ☯️ TAO Architecture Manifest
+# 道: 不可变的架构原则 — S-T-V 三角形
+# 每个项目是完整小宇宙，可独立运行，也可接入三角协同
+
+tao:
+  principle: "一生二 · 二生三 · 三生万物"
+  triangle: ["S", "T", "V"]  # 不变的三体核心
+  role: "T"                    # 本项目的三角角色
+  standalone: true             # 可独立运行 (microcosmos)
+  triangle_connected: true     # 可接入三角 (integrated)
+
+  # 小宇宙能力 (独立模式)
+  microcosmos:
+    capabilities:
+      - "6-phase pipeline routing"
+      - "Contradiction analysis"
+      - "Knowledge gap detection"
+      - "Chaos-enhanced exploration"
+    limitations:
+      - "No external search without cognitive"
+      - "No species validation without V"
+
+  # 三角能力 (集成模式)
+  triangle:
+    connects_to: ["S (fish)", "V (cognitive)", "P₁ (porpoise)", "P₂ (coilia)"]
+    pipeline: "UNDERSTAND → ROUTE → EXECUTE → VALIDATE → SYNTHESIZE → EVOLVE"
