@@ -1,3 +1,19 @@
+# ⚠️ DEPRECATED — 此仓库已归档 (保留作为历史记录)
+
+> **meso-cosmos-agent 的协调功能已迁移至 [eon-core](https://github.com/fangtaocai041/eon-core) (v7.1.0)**
+>
+> | 原模块 | 迁移至 |
+> |--------|--------|
+> | 6-phase pipeline | eon-core OriginKernel + TetrahedronMesh |
+> | DirectLoader (_call_cognitive/porpoise/coilia) | scripts/project_loader.py |
+> | ChaosEngine (Rössler吸引子) | eon-core/src/evolution/chaos_engine.py |
+> | SearchOptimizer (统计停止准则) | eon-core/src/evolution/search_optimizer.py |
+> | HealthCheck / WuXingMonitor | eon-core 集成监控 |
+>
+> **本仓库只读保留，作为 v2.0.0 历史快照。所有新功能开发请移步 [eon-core](https://github.com/fangtaocai041/eon-core)。**
+
+---
+
 <p align="center">
   🇨🇳 <a href="README.zh.md">中文</a>
 </p>
